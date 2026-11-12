@@ -11,22 +11,31 @@ schedule (binary pre-train → 4-class fine-tune) to handle class imbalance.
 
 ## Approach
 
-```
- raw ECG (300 Hz, 1 lead)
-        │  band-pass (0.5–40 Hz, zero-phase) + normalize
-        ▼
- fixed-length window  ──►  log-Mel spectrogram  (n_mels × frames)
-        │                  + augmentation (noise, time-shift)
-        ▼
- SE-ResNet  (stem → 4 residual stages with Squeeze-and-Excitation → GAP)
-        │
-        ▼
- Stage 1: pre-train binary head (Normal vs AF)
- Stage 2: replace head → fine-tune 4-class   (class weights, ReduceLROnPlateau)
-        │
-        ▼
- evaluation: macro-F1 + confusion matrix
-```
+![ECG classification pipeline](docs/pipeline.svg)
+
+The raw single-lead ECG is band-pass filtered and normalized, turned into a
+fixed-size log-Mel image, and classified by an SE-ResNet trained in two transfer
+stages (binary Normal-vs-AF pre-train, then a 4-class fine-tune with class
+weights).
+
+## Preprocessing example
+
+![ECG preprocessing — raw signal, band-passed, log-Mel feature](docs/preprocessing_example.png)
+
+*Illustrative only — generated from a **synthetic** ECG-like signal (periodic QRS
++ baseline wander + 50 Hz hum + noise), not PhysioNet patient data. The figure is
+produced by this repository's actual `preprocessing.py` (`bandpass_filter` →
+`normalize` → `log_mel`): the band-pass removes baseline wander and mains hum, and
+the per-beat structure appears as vertical bands in the low mel bins.*
+
+## Model architecture
+
+![SE-ResNet architecture and SE-residual block](docs/seresnet.svg)
+
+A conv stem, four residual stages with a Squeeze-and-Excitation gate on every
+block, global average pooling (the reused embedding), and a softmax head. The SE
+gate is lightweight channel attention: squeeze with global average pooling, excite
+through a small bottleneck MLP, then re-scale the channels.
 
 ## Project structure
 
